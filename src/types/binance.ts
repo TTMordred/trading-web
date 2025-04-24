@@ -22,4 +22,21 @@ export interface VolumeSpikeData {
   percentageIncrease: number;
   price: number;
   priceChange24h: number;
+  timeframe?: string;
+  candleTime?: number;
+}
+
+export interface RecentVolumeSpikeData extends VolumeSpikeData {
+  spikeTime: number;
+  peakPrice: number;
+  lowPrice: number;
+  currentPrice: number;
+  fiboLevel?: number; // 0.5, 0.618, 0.786
+  timeSinceSpike: string; // formatted time like "2h 30m"
+  isAtFiboLevel: boolean;
+}
+
+export interface FibonacciLevel {
+  level: number; // 0.5, 0.618, 0.786
+  price: number;
 }
