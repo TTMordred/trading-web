@@ -297,10 +297,21 @@ export const formatTimeSinceSpike = (spikeTime: number): string => {
 
 // Store for recent volume spikes (in-memory cache)
 // In a production app, this would be stored in a database
-const recentVolumeSpikes: Map<string, RecentVolumeSpikeData> = new Map();
+// Map structure: timeInterval -> symbol -> spikeData
+const recentVolumeSpikes: Map<TimeInterval, Map<string, RecentVolumeSpikeData>> = new Map([
+  ['15m', new Map()],
+  ['1h', new Map()],
+  ['4h', new Map()],
+  ['1d', new Map()]
+]);
 
 // Record a volume spike for tracking
-export const recordVolumeSpike = (spike: VolumeSpikeData, highPrice: number, lowPrice: number): void => {
+export const recordVolumeSpike = (
+  spike: VolumeSpikeData,
+  highPrice: number,
+  lowPrice: number,
+  interval: TimeInterval
+): void => {
   // Determine initial trend direction
   const trendDirection = determineTrendDirection(spike.price, highPrice, lowPrice);
 
@@ -314,25 +325,36 @@ export const recordVolumeSpike = (spike: VolumeSpikeData, highPrice: number, low
     isAtFiboLevel: false,
     signalType: 'NEUTRAL', // Initial signal is neutral until we hit a Fibo level
     trendDirection, // Set initial trend direction
-    signalStrength: 0 // Initial strength is 0
+    signalStrength: 0, // Initial strength is 0
+    timeframe: interval // Store the time interval
   };
 
-  recentVolumeSpikes.set(spike.symbol, recentSpike);
+  // Get the map for this time interval
+  const intervalMap = recentVolumeSpikes.get(interval);
+  if (intervalMap) {
+    intervalMap.set(spike.symbol, recentSpike);
+  }
 };
 
 // Update recent volume spikes with current prices and check Fibonacci levels
-export const updateRecentVolumeSpikes = async (): Promise<RecentVolumeSpikeData[]> => {
+export const updateRecentVolumeSpikes = async (interval: TimeInterval): Promise<RecentVolumeSpikeData[]> => {
   const updatedSpikes: RecentVolumeSpikeData[] = [];
   const currentTime = Date.now();
 
+  // Get the map for this time interval
+  const intervalMap = recentVolumeSpikes.get(interval);
+  if (!intervalMap) {
+    return [];
+  }
+
   // Convert Map entries to array to avoid iterator issues
-  const spikes = Array.from(recentVolumeSpikes.entries());
+  const spikes = Array.from(intervalMap.entries());
 
   for (const [symbol, spike] of spikes) {
     // Skip if spike is older than MAX_RECENT_SPIKE_HOURS
     const ageHours = (currentTime - spike.spikeTime) / (1000 * 60 * 60);
     if (ageHours > MAX_RECENT_SPIKE_HOURS) {
-      recentVolumeSpikes.delete(symbol);
+      intervalMap.delete(symbol);
       continue;
     }
 
@@ -377,7 +399,7 @@ export const updateRecentVolumeSpikes = async (): Promise<RecentVolumeSpikeData[
         priceToFiboRatio
       };
 
-      recentVolumeSpikes.set(symbol, updatedSpike);
+      intervalMap.set(symbol, updatedSpike);
 
       if (isAtLevel) {
         updatedSpikes.push(updatedSpike);
@@ -440,7 +462,7 @@ export const fetchCurrentVolumeSpikes = async (interval: TimeInterval): Promise<
         const highPrice = Math.max(...klines.map(k => parseFloat(k.high)));
         const lowPrice = Math.min(...klines.map(k => parseFloat(k.low)));
 
-        recordVolumeSpike(spike, highPrice, lowPrice);
+        recordVolumeSpike(spike, highPrice, lowPrice, interval);
       } catch (error) {
         console.error(`Error recording spike for ${spike.symbol}:`, error);
       }

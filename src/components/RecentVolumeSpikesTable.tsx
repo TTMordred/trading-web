@@ -1,7 +1,8 @@
 import React from 'react';
 import { VolumeSpikeWithFibonacci } from '@/types/fibonacci';
-import { formatNumber, formatPercentage } from '@/utils/formatters';
+import { formatNumber } from '@/utils/formatters';
 import FibonacciSparkline from './FibonacciSparkline';
+import ClientTime from '@/components/ClientTime';
 
 interface RecentVolumeSpikesTableProps {
   recentSpikes: VolumeSpikeWithFibonacci[];
@@ -32,7 +33,7 @@ const RecentVolumeSpikesTable: React.FC<RecentVolumeSpikesTableProps> = ({
   const formatTimeSince = (timeSinceSpike: number) => {
     const hours = Math.floor(timeSinceSpike / (1000 * 60 * 60));
     const minutes = Math.floor((timeSinceSpike % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
@@ -88,16 +89,16 @@ const RecentVolumeSpikesTable: React.FC<RecentVolumeSpikesTableProps> = ({
                 {spike.symbol}
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
-                {spike.fibonacci?.highTimestamp 
-                  ? new Date(spike.fibonacci.highTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                {spike.fibonacci?.highTimestamp
+                  ? <ClientTime format="time" timestamp={spike.fibonacci.highTimestamp} />
                   : '-'}
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-400">
                 +{spike.percentageIncrease.toFixed(2)}%
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm">
-                <span className={`px-2 py-1 text-xs font-medium rounded border ${getFibonacciBadgeColor(spike.nearestFibonacciLevel || 0)}`}>
-                  {spike.nearestFibonacciLevel?.toFixed(3) || '-'}
+                <span className={`px-2 py-1 text-xs font-medium rounded border ${getFibonacciBadgeColor(spike.nearestFibonacciLevel ?? 0)}`}>
+                  {spike.nearestFibonacciLevel?.toFixed(3) ?? '-'}
                 </span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">

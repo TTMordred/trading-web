@@ -1,6 +1,7 @@
 import React from 'react';
 import { VolumeSpikeData } from '@/types/binance';
 import { formatNumber } from '@/utils/formatters';
+import ClientTime from '@/components/ClientTime';
 
 interface VolumeSpikesTableProps {
   volumeSpikes: VolumeSpikeData[];
@@ -82,7 +83,7 @@ const VolumeSpikesTable: React.FC<VolumeSpikesTableProps> = ({
                 {spike.priceChange24h.toFixed(2)}%
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-400">
-                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <ClientTime format="time" />
               </td>
             </tr>
           ))}

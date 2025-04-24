@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react';
 import { TimeInterval, VolumeSpikeData, RecentVolumeSpikeData } from '@/types/binance';
 import { fetchCurrentVolumeSpikes, updateRecentVolumeSpikes } from '@/services/binanceService';
 
+// Helper function to get a numeric value for Fibonacci level preference
+const getFiboValue = (level?: number): number => {
+  if (level === 0.786) return 3;
+  if (level === 0.618) return 2;
+  if (level === 0.5) return 1;
+  return 0;
+};
+
 export const useEnhancedVolumeSpikes = (interval: TimeInterval) => {
   const [currentSpikes, setCurrentSpikes] = useState<VolumeSpikeData[]>([]);
   const [recentSpikes, setRecentSpikes] = useState<RecentVolumeSpikeData[]>([]);
@@ -11,27 +19,41 @@ export const useEnhancedVolumeSpikes = (interval: TimeInterval) => {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadVolumeSpikes = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         // Fetch current volume spikes
         const currentData = await fetchCurrentVolumeSpikes(interval);
-        
+
         // Update recent spikes and check for Fibonacci levels
-        const recentData = await updateRecentVolumeSpikes();
-        
+        const recentData = await updateRecentVolumeSpikes(interval);
+
         if (isMounted) {
           setCurrentSpikes(currentData);
-          
+
           // Filter recent spikes to only those at Fibonacci levels
           const fiboSpikes = recentData.filter(spike => spike.isAtFiboLevel);
           setRecentSpikes(fiboSpikes);
-          
-          // Get top 5 opportunities (highest percentage increase)
-          setTopOpportunities(fiboSpikes.slice(0, 5));
+
+          // Sort by Fibonacci level preference and percentage increase
+          const sortedOpportunities = [...fiboSpikes].sort((a, b) => {
+            // First sort by Fibonacci level (0.786 > 0.618 > 0.5)
+            const aFiboValue = getFiboValue(a.fiboLevel);
+            const bFiboValue = getFiboValue(b.fiboLevel);
+
+            if (aFiboValue !== bFiboValue) {
+              return bFiboValue - aFiboValue;
+            }
+
+            // Then by percentage increase
+            return b.percentageIncrease - a.percentageIncrease;
+          });
+
+          // Get top 5 opportunities
+          setTopOpportunities(sortedOpportunities.slice(0, 5));
         }
       } catch (err) {
         if (isMounted) {
@@ -49,18 +71,18 @@ export const useEnhancedVolumeSpikes = (interval: TimeInterval) => {
 
     // Set up interval to refresh data every minute
     const intervalId = setInterval(loadVolumeSpikes, 60000);
-    
+
     return () => {
       isMounted = false;
       clearInterval(intervalId);
     };
   }, [interval]);
 
-  return { 
-    currentSpikes, 
-    recentSpikes, 
-    topOpportunities, 
-    loading, 
-    error 
+  return {
+    currentSpikes,
+    recentSpikes,
+    topOpportunities,
+    loading,
+    error
   };
 };
