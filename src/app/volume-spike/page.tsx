@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import TimeIntervalSelector from '@/components/TimeIntervalSelector';
 import VolumeSpikeNow from '@/components/VolumeSpikeNow';
@@ -16,8 +16,6 @@ const VolumeChart = dynamic(() => import('@/components/VolumeChart'), {
 
 export default function VolumeSpikeTracker() {
   const [selectedInterval, setSelectedInterval] = useState<TimeInterval>('15m');
-  const [currentTime, setCurrentTime] = useState('');
-  const [currentDateTime, setCurrentDateTime] = useState('');
   const {
     currentSpikes,
     recentSpikes,
@@ -25,20 +23,6 @@ export default function VolumeSpikeTracker() {
     loading,
     error
   } = useEnhancedVolumeSpikes(selectedInterval);
-
-  // Update time only on client-side to avoid hydration mismatch
-  useEffect(() => {
-    setCurrentTime(new Date().toLocaleTimeString());
-    setCurrentDateTime(new Date().toLocaleString());
-
-    // Optional: Update time every minute
-    const timer = setInterval(() => {
-      setCurrentTime(new Date().toLocaleTimeString());
-      setCurrentDateTime(new Date().toLocaleString());
-    }, 60000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   const handleIntervalChange = (interval: TimeInterval) => {
     setSelectedInterval(interval);
@@ -68,7 +52,7 @@ export default function VolumeSpikeTracker() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
             <div className="bg-gray-800/50 rounded-lg p-3">
               <div className="text-sm text-gray-400">Last Updated</div>
-              <div className="text-white font-medium">{currentTime || '...'}</div>
+              <div className="text-white font-medium">{new Date().toLocaleTimeString()}</div>
             </div>
             <div className="bg-gray-800/50 rounded-lg p-3">
               <div className="text-sm text-gray-400">Timeframe</div>
@@ -195,7 +179,7 @@ export default function VolumeSpikeTracker() {
           Fibonacci retracement levels are calculated from the low to high price range of the spike movement.
         </p>
         <div className="mt-3 flex justify-center space-x-4">
-          <span className="text-xs text-gray-500">Last updated: {currentDateTime || '...'}</span>
+          <span className="text-xs text-gray-500">Last updated: {new Date().toLocaleString()}</span>
           <span className="text-xs text-gray-500">Timeframe: {selectedInterval}</span>
         </div>
       </div>

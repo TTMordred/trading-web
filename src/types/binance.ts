@@ -1,4 +1,6 @@
 export type TimeInterval = '15m' | '1h' | '4h' | '1d';
+export type SignalType = 'BUY' | 'SELL' | 'NEUTRAL';
+export type TrendDirection = 'UP' | 'DOWN' | 'NEUTRAL';
 
 export interface Kline {
   openTime: number;
@@ -34,6 +36,10 @@ export interface RecentVolumeSpikeData extends VolumeSpikeData {
   fiboLevel?: number; // 0.5, 0.618, 0.786
   timeSinceSpike: string; // formatted time like "2h 30m"
   isAtFiboLevel: boolean;
+  signalType: SignalType; // BUY, SELL, or NEUTRAL
+  trendDirection: TrendDirection; // UP, DOWN, or NEUTRAL
+  signalStrength?: number; // 0-100 scale indicating signal strength
+  priceToFiboRatio?: number; // How close price is to the exact fibo level (0-1)
 }
 
 export interface FibonacciLevel {

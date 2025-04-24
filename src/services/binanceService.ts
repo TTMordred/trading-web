@@ -1,5 +1,13 @@
 import axios from 'axios';
-import { TimeInterval, VolumeSpikeData, Kline, RecentVolumeSpikeData, FibonacciLevel } from '@/types/binance';
+import {
+  TimeInterval,
+  VolumeSpikeData,
+  Kline,
+  RecentVolumeSpikeData,
+  FibonacciLevel,
+  SignalType,
+  TrendDirection
+} from '@/types/binance';
 
 const BINANCE_API_BASE_URL = 'https://api.binance.com/api/v3';
 
@@ -151,14 +159,80 @@ export const calculateFibonacciLevels = (highPrice: number, lowPrice: number): F
 export const isPriceAtFibonacciLevel = (
   price: number,
   fibLevels: FibonacciLevel[]
-): { isAtLevel: boolean; level?: number } => {
+): { isAtLevel: boolean; level?: number; priceToFiboRatio?: number } => {
   for (const fib of fibLevels) {
     const tolerance = fib.price * FIBO_LEVEL_TOLERANCE;
     if (Math.abs(price - fib.price) <= tolerance) {
-      return { isAtLevel: true, level: fib.level };
+      // Calculate how close the price is to the exact Fibonacci level (0-1 scale)
+      // 0 means exactly at the level, 1 means at the edge of tolerance
+      const priceToFiboRatio = Math.abs(price - fib.price) / tolerance;
+      return { isAtLevel: true, level: fib.level, priceToFiboRatio };
     }
   }
   return { isAtLevel: false };
+};
+
+// Determine trend direction based on price movement
+export const determineTrendDirection = (
+  currentPrice: number,
+  peakPrice: number,
+  lowPrice: number
+): TrendDirection => {
+  // If current price is closer to peak than low, trend is UP
+  if (Math.abs(currentPrice - peakPrice) < Math.abs(currentPrice - lowPrice)) {
+    return 'UP';
+  }
+  // If current price is closer to low than peak, trend is DOWN
+  else if (Math.abs(currentPrice - lowPrice) < Math.abs(currentPrice - peakPrice)) {
+    return 'DOWN';
+  }
+  // If equidistant or can't determine
+  return 'NEUTRAL';
+};
+
+// Determine signal type based on trend and Fibonacci level
+export const determineSignalType = (
+  trendDirection: TrendDirection,
+  fiboLevel?: number
+): SignalType => {
+  if (!fiboLevel) return 'NEUTRAL';
+
+  // For uptrend, we want to buy at deep retracements (0.618-0.786)
+  if (trendDirection === 'UP') {
+    if (fiboLevel >= 0.5 && fiboLevel <= 0.786) {
+      return 'BUY';
+    }
+  }
+  // For downtrend, we want to sell at shallow retracements (0.5-0.618)
+  else if (trendDirection === 'DOWN') {
+    if (fiboLevel >= 0.5 && fiboLevel <= 0.786) {
+      return 'SELL';
+    }
+  }
+
+  return 'NEUTRAL';
+};
+
+// Calculate signal strength based on Fibonacci level and price ratio
+export const calculateSignalStrength = (
+  fiboLevel?: number,
+  priceToFiboRatio?: number
+): number => {
+  if (!fiboLevel || priceToFiboRatio === undefined) return 0;
+
+  // Base strength on Fibonacci level (0.786 is strongest)
+  let strength = 0;
+  if (fiboLevel === 0.786) strength = 90;
+  else if (fiboLevel === 0.618) strength = 80;
+  else if (fiboLevel === 0.5) strength = 70;
+  else strength = 50;
+
+  // Adjust strength based on how close price is to exact Fibonacci level
+  // priceToFiboRatio of 0 means exactly at level (strongest)
+  // priceToFiboRatio of 1 means at edge of tolerance (weakest)
+  strength = strength * (1 - priceToFiboRatio * 0.5);
+
+  return Math.round(strength);
 };
 
 // Format time since spike
@@ -180,6 +254,9 @@ const recentVolumeSpikes: Map<string, RecentVolumeSpikeData> = new Map();
 
 // Record a volume spike for tracking
 export const recordVolumeSpike = (spike: VolumeSpikeData, highPrice: number, lowPrice: number): void => {
+  // Determine initial trend direction
+  const trendDirection = determineTrendDirection(spike.price, highPrice, lowPrice);
+
   const recentSpike: RecentVolumeSpikeData = {
     ...spike,
     spikeTime: Date.now(),
@@ -187,7 +264,10 @@ export const recordVolumeSpike = (spike: VolumeSpikeData, highPrice: number, low
     lowPrice: lowPrice,
     currentPrice: spike.price,
     timeSinceSpike: '0m',
-    isAtFiboLevel: false
+    isAtFiboLevel: false,
+    signalType: 'NEUTRAL', // Initial signal is neutral until we hit a Fibo level
+    trendDirection, // Set initial trend direction
+    signalStrength: 0 // Initial strength is 0
   };
 
   recentVolumeSpikes.set(spike.symbol, recentSpike);
@@ -215,7 +295,16 @@ export const updateRecentVolumeSpikes = async (): Promise<RecentVolumeSpikeData[
       const fibLevels = calculateFibonacciLevels(spike.peakPrice, spike.lowPrice);
 
       // Check if price is at a Fibonacci level
-      const { isAtLevel, level } = isPriceAtFibonacciLevel(currentPrice, fibLevels);
+      const { isAtLevel, level, priceToFiboRatio } = isPriceAtFibonacciLevel(currentPrice, fibLevels);
+
+      // Determine trend direction based on current price relative to peak and low
+      const trendDirection = determineTrendDirection(currentPrice, spike.peakPrice, spike.lowPrice);
+
+      // Determine signal type based on trend and Fibonacci level
+      const signalType = isAtLevel ? determineSignalType(trendDirection, level) : 'NEUTRAL';
+
+      // Calculate signal strength
+      const signalStrength = isAtLevel ? calculateSignalStrength(level, priceToFiboRatio) : 0;
 
       // Update spike data
       const updatedSpike: RecentVolumeSpikeData = {
@@ -223,7 +312,11 @@ export const updateRecentVolumeSpikes = async (): Promise<RecentVolumeSpikeData[
         currentPrice,
         timeSinceSpike: formatTimeSinceSpike(spike.spikeTime),
         isAtFiboLevel: isAtLevel,
-        fiboLevel: level
+        fiboLevel: level,
+        trendDirection,
+        signalType,
+        signalStrength,
+        priceToFiboRatio
       };
 
       recentVolumeSpikes.set(symbol, updatedSpike);
@@ -236,8 +329,29 @@ export const updateRecentVolumeSpikes = async (): Promise<RecentVolumeSpikeData[
     }
   }
 
-  // Sort by percentage increase
-  return updatedSpikes.sort((a, b) => b.percentageIncrease - a.percentageIncrease);
+  // First sort by signal strength, then by Fibonacci level preference (0.786 > 0.618 > 0.5)
+  return updatedSpikes.sort((a, b) => {
+    // First sort by signal strength
+    if (b.signalStrength !== a.signalStrength) {
+      return b.signalStrength! - a.signalStrength!;
+    }
+
+    // Then prioritize by Fibonacci level (0.786 is most important)
+    if (a.fiboLevel !== b.fiboLevel) {
+      // If both have fibo levels, prioritize 0.786, then 0.618, then 0.5
+      if (a.fiboLevel && b.fiboLevel) {
+        if (a.fiboLevel === 0.786) return -1;
+        if (b.fiboLevel === 0.786) return 1;
+        if (a.fiboLevel === 0.618) return -1;
+        if (b.fiboLevel === 0.618) return 1;
+      }
+      // If only one has a fibo level, prioritize that one
+      return a.fiboLevel ? -1 : 1;
+    }
+
+    // Finally sort by percentage increase
+    return b.percentageIncrease - a.percentageIncrease;
+  });
 };
 
 // Fetch current volume spikes (happening now)

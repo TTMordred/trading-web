@@ -19,21 +19,15 @@ const TimeIntervalSelector: React.FC<TimeIntervalSelectorProps> = ({
 }) => {
   return (
     <div className="flex justify-center mb-6">
-      <div className="inline-flex rounded-md shadow-sm" role="group">
+      <div className="bg-gray-800/70 p-1 rounded-lg shadow-lg inline-flex">
         {intervals.map((interval) => (
           <button
             key={interval.value}
             type="button"
-            className={`px-4 py-2 text-sm font-medium border ${
+            className={`px-5 py-2 text-sm font-medium transition-all duration-200 ${
               selectedInterval === interval.value
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700'
-            } ${
-              interval.value === '15m'
-                ? 'rounded-l-lg'
-                : interval.value === '1d'
-                ? 'rounded-r-lg'
-                : ''
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-md shadow-md'
+                : 'text-gray-300 hover:bg-gray-700/50 hover:text-white rounded-md'
             }`}
             onClick={() => onIntervalChange(interval.value)}
           >

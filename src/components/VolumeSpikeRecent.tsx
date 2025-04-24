@@ -1,5 +1,5 @@
 import React from 'react';
-import { RecentVolumeSpikeData } from '@/types/binance';
+import { RecentVolumeSpikeData, SignalType } from '@/types/binance';
 import { formatPrice } from '@/utils/formatters';
 import FibonacciVisualizer from './FibonacciVisualizer';
 
@@ -40,6 +40,45 @@ const VolumeSpikeRecent: React.FC<VolumeSpikeRecentProps> = ({
     if (level === 0.786) return 'bg-purple-600';
 
     return 'bg-gray-600';
+  };
+
+  // Helper function to get signal badge styling
+  const getSignalBadgeStyle = (signalType: SignalType, signalStrength: number = 0) => {
+    switch (signalType) {
+      case 'BUY':
+        return {
+          bg: signalStrength > 80 ? 'bg-green-900/70' : 'bg-green-900/50',
+          text: 'text-green-400',
+          border: 'border-green-700/50',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
+            </svg>
+          )
+        };
+      case 'SELL':
+        return {
+          bg: signalStrength > 80 ? 'bg-red-900/70' : 'bg-red-900/50',
+          text: 'text-red-400',
+          border: 'border-red-700/50',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z" clipRule="evenodd" />
+            </svg>
+          )
+        };
+      default:
+        return {
+          bg: 'bg-gray-800/50',
+          text: 'text-gray-400',
+          border: 'border-gray-700/50',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+            </svg>
+          )
+        };
+    }
   };
 
   return (
@@ -114,13 +153,24 @@ const VolumeSpikeRecent: React.FC<VolumeSpikeRecentProps> = ({
               </td>
               <td className="px-4 py-4 whitespace-nowrap">
                 <div className="flex items-center justify-center">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/50 text-green-400 border border-green-700/50">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
-                    </svg>
-                    BUY
-                  </span>
+                  {(() => {
+                    const style = getSignalBadgeStyle(spike.signalType, spike.signalStrength);
+                    return (
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text} border ${style.border}`}>
+                        {style.icon}
+                        {spike.signalType}
+                        {spike.signalStrength ? (
+                          <span className="ml-1 text-xs opacity-70">({spike.signalStrength})</span>
+                        ) : null}
+                      </span>
+                    );
+                  })()}
                 </div>
+                {spike.trendDirection !== 'NEUTRAL' && (
+                  <div className="text-xs text-center mt-1 text-gray-500">
+                    Trend: {spike.trendDirection === 'UP' ? '↗️ Upward' : '↘️ Downward'}
+                  </div>
+                )}
               </td>
             </tr>
           ))}
