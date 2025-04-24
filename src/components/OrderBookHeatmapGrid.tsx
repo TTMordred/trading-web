@@ -62,9 +62,7 @@ const OrderBookHeatmapGrid: React.FC<OrderBookHeatmapGridProps> = ({
     const adjustedMinPrice = minPrice - buffer;
     const adjustedMaxPrice = maxPrice + buffer;
 
-    // Find max volume for scaling (not used directly but kept for future reference)
-    // const allVolumes = [...orderBook.bids, ...orderBook.asks].map(item => item.quantity * item.price);
-    // const maxVolume = Math.max(...allVolumes);
+    // Find max volume for scaling is done per bucket instead
 
     // Sort orders by price
     const sortedBids = [...orderBook.bids].sort((a, b) => a.price - b.price);

@@ -68,9 +68,6 @@ const OrderBookHeatmap: React.FC<OrderBookHeatmapProps> = ({
     const buffer = priceRange * 0.05;
     const adjustedMinPrice = minPrice - buffer;
     const adjustedMaxPrice = maxPrice + buffer;
-    const adjustedPriceRange = adjustedMaxPrice - adjustedMinPrice;
-
-
 
     // Find max volume for scaling
     const allVolumes = [...orderBook.bids, ...orderBook.asks].map(item => item.quantity * item.price);
