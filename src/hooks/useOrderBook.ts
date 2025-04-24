@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { OrderBook, OrderWall } from '@/types/orderbook';
 import { fetchOrderBook, detectOrderWalls } from '@/services/orderBookService';
-import { TimeScale } from '@/components/TimeScaleSelector';
-
-export const useOrderBook = (symbol: string, timeScale: TimeScale = '15m') => {
+export const useOrderBook = (symbol: string) => {
   const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
   const [orderWalls, setOrderWalls] = useState<OrderWall[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -17,8 +15,8 @@ export const useOrderBook = (symbol: string, timeScale: TimeScale = '15m') => {
       setError(null);
 
       try {
-        // Note: Currently the Binance API doesn't support different time scales for order book directly,
-        // but we're adding the parameter for future extensibility and UI consistency
+        // Fetch the order book data for the selected symbol
+        // The UI will handle price range scaling for visualization
         const data = await fetchOrderBook(symbol);
         if (isMounted) {
           setOrderBook(data);
@@ -46,7 +44,7 @@ export const useOrderBook = (symbol: string, timeScale: TimeScale = '15m') => {
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, [symbol, timeScale]);
+  }, [symbol]);
 
   return { orderBook, orderWalls, loading, error };
 };

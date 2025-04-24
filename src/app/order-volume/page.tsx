@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import SymbolSelector from '@/components/SymbolSelector';
 import OrderBookTable from '@/components/OrderBookTable';
-import TimeScaleSelector, { TimeScale } from '@/components/TimeScaleSelector';
 import VolumeConcentrationZones, { VolumeZone } from '@/components/VolumeConcentrationZones';
 import { useOrderBook } from '@/hooks/useOrderBook';
 import { calculateVolumeConcentrationZones } from '@/services/orderBookService';
@@ -14,14 +13,9 @@ const OrderBookHeatmap = dynamic(() => import('@/components/OrderBookHeatmap'), 
   ssr: false,
 });
 
-const OrderWallsChart = dynamic(() => import('@/components/OrderWallsChart'), {
-  ssr: false,
-});
-
 export default function OrderVolumeTracker() {
   const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
-  const [selectedTimeScale, setSelectedTimeScale] = useState<TimeScale>('15m');
-  const { orderBook, orderWalls, loading, error } = useOrderBook(selectedSymbol, selectedTimeScale);
+  const { orderBook, orderWalls, loading, error } = useOrderBook(selectedSymbol);
   const [volumeZones, setVolumeZones] = useState<VolumeZone[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
@@ -36,10 +30,6 @@ export default function OrderVolumeTracker() {
 
   const handleSymbolChange = (symbol: string) => {
     setSelectedSymbol(symbol);
-  };
-
-  const handleTimeScaleChange = (timeScale: TimeScale) => {
-    setSelectedTimeScale(timeScale);
   };
 
   // Calculate some stats for the header
@@ -91,18 +81,13 @@ export default function OrderVolumeTracker() {
 
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-4 md:mb-0 text-gray-400 max-w-md">
-              Track significant order walls and market depth on Binance with real-time visualization
+              Visualize order book depth and market liquidity across the full range of orders
             </div>
 
             <div className="flex flex-wrap gap-4 items-center">
               <SymbolSelector
                 selectedSymbol={selectedSymbol}
                 onSymbolChange={handleSymbolChange}
-              />
-
-              <TimeScaleSelector
-                selectedTimeScale={selectedTimeScale}
-                onTimeScaleChange={handleTimeScaleChange}
               />
             </div>
           </div>
@@ -128,40 +113,15 @@ export default function OrderVolumeTracker() {
         {!loading && (
           <>
             {/* Main content grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <div className="lg:col-span-2">
-                {/* Order Book Heatmap */}
-                <OrderBookHeatmap
-                  orderBook={orderBook}
-                  timeScale={selectedTimeScale}
-                  symbol={selectedSymbol}
-                />
-              </div>
+            <div className="grid grid-cols-1 gap-6 mb-6">
+              {/* Order Book Heatmap */}
+              <OrderBookHeatmap
+                orderBook={orderBook}
+                symbol={selectedSymbol}
+              />
 
-              <div>
-                {/* Volume Concentration Zones */}
-                <VolumeConcentrationZones zones={volumeZones} />
-              </div>
-
-              <div>
-                {/* Order Walls Chart */}
-                {orderWalls.length > 0 ? (
-                  <OrderWallsChart
-                    orderWalls={orderWalls}
-                    currentPrice={parseFloat(currentPrice)}
-                  />
-                ) : (
-                  <div className="bg-gray-900 rounded-lg shadow-lg p-6 h-[500px] flex flex-col justify-center items-center">
-                    <svg className="w-16 h-16 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <h3 className="text-xl font-bold text-gray-400 mt-4">No Order Walls Detected</h3>
-                    <p className="text-gray-500 text-center mt-2 max-w-md">
-                      No significant order walls were found for {selectedSymbol} at the current threshold (50,000 USDT).
-                    </p>
-                  </div>
-                )}
-              </div>
+              {/* Volume Concentration Zones */}
+              <VolumeConcentrationZones zones={volumeZones} />
             </div>
 
             {/* Order Book Table */}
@@ -178,7 +138,8 @@ export default function OrderVolumeTracker() {
 
         <div className="bg-gray-900/50 rounded-lg p-4 text-sm text-gray-400 flex justify-between items-center">
           <div>
-            <p>Order walls are detected when the order value exceeds 50,000 USDT.</p>
+            <p>Green/red bars show individual orders. Curved lines show cumulative volume.</p>
+            <p className="mt-1">Showing the full order book range with all available orders.</p>
           </div>
           <div className="text-right">
             <p>Last updated: <span suppressHydrationWarning>{lastUpdated.toLocaleTimeString()}</span></p>

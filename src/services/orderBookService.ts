@@ -9,8 +9,10 @@ const ORDER_WALL_THRESHOLD = 50000;
 
 /**
  * Fetch order book data from Binance API
+ * Using maximum limit (5000) to get orders at further price ranges
+ * This allows us to visualize the order book with wider price scales
  */
-export const fetchOrderBook = async (symbol: string, limit: number = 1000): Promise<OrderBook> => {
+export const fetchOrderBook = async (symbol: string, limit: number = 5000): Promise<OrderBook> => {
   try {
     const response = await axios.get(`${BINANCE_API_BASE_URL}/depth`, {
       params: {
