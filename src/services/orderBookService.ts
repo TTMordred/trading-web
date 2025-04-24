@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { OrderBook, OrderBookEntry, OrderWall } from '@/types/orderbook';
+import { VolumeZone } from '@/components/VolumeConcentrationZones';
 
 const BINANCE_API_BASE_URL = 'https://api.binance.com/api/v3';
 
@@ -102,4 +103,77 @@ export const calculateCumulativeOrders = (orderBook: OrderBook): { cumulativeBid
   });
 
   return { cumulativeBids, cumulativeAsks };
+};
+
+/**
+ * Calculate volume concentration zones
+ * This identifies price ranges with significant order volume
+ */
+export const calculateVolumeConcentrationZones = (orderBook: OrderBook, zoneCount: number = 5): VolumeZone[] => {
+  if (!orderBook?.bids?.length || !orderBook?.asks?.length) {
+    return [];
+  }
+
+  const zones: VolumeZone[] = [];
+  const VOLUME_THRESHOLD = 100000; // Minimum volume to consider a zone significant (in USDT)
+
+  // Group bids by price ranges
+  const bidRanges: Record<string, number> = {};
+  const askRanges: Record<string, number> = {};
+
+  // Find min and max prices
+  const allPrices = [...orderBook.bids, ...orderBook.asks].map(entry => entry.price);
+  const minPrice = Math.min(...allPrices);
+  const maxPrice = Math.max(...allPrices);
+
+  // Calculate price range size (divide the full range into segments)
+  const rangeSize = (maxPrice - minPrice) / 20; // 20 segments
+
+  // Group bids by price ranges
+  orderBook.bids.forEach(bid => {
+    const rangeStart = Math.floor(bid.price / rangeSize) * rangeSize;
+    const rangeEnd = rangeStart + rangeSize;
+    const rangeKey = `${rangeStart.toFixed(2)}-${rangeEnd.toFixed(2)}`;
+
+    const volume = bid.price * bid.quantity;
+    bidRanges[rangeKey] = (bidRanges[rangeKey] || 0) + volume;
+  });
+
+  // Group asks by price ranges
+  orderBook.asks.forEach(ask => {
+    const rangeStart = Math.floor(ask.price / rangeSize) * rangeSize;
+    const rangeEnd = rangeStart + rangeSize;
+    const rangeKey = `${rangeStart.toFixed(2)}-${rangeEnd.toFixed(2)}`;
+
+    const volume = ask.price * ask.quantity;
+    askRanges[rangeKey] = (askRanges[rangeKey] || 0) + volume;
+  });
+
+  // Convert bid ranges to zones
+  Object.entries(bidRanges)
+    .filter(([, volume]) => volume > VOLUME_THRESHOLD)
+    .sort((a, b) => b[1] - a[1]) // Sort by volume descending
+    .slice(0, zoneCount) // Take top zones
+    .forEach(([priceRange, volume]) => {
+      zones.push({
+        priceRange,
+        volume,
+        type: 'bid'
+      });
+    });
+
+  // Convert ask ranges to zones
+  Object.entries(askRanges)
+    .filter(([, volume]) => volume > VOLUME_THRESHOLD)
+    .sort((a, b) => b[1] - a[1]) // Sort by volume descending
+    .slice(0, zoneCount) // Take top zones
+    .forEach(([priceRange, volume]) => {
+      zones.push({
+        priceRange,
+        volume,
+        type: 'ask'
+      });
+    });
+
+  return zones;
 };

@@ -1,22 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import SymbolSelector from '@/components/SymbolSelector';
 import OrderBookTable from '@/components/OrderBookTable';
+import TimeScaleSelector, { TimeScale } from '@/components/TimeScaleSelector';
+import VolumeConcentrationZones, { VolumeZone } from '@/components/VolumeConcentrationZones';
 import { useOrderBook } from '@/hooks/useOrderBook';
+import { calculateVolumeConcentrationZones } from '@/services/orderBookService';
 
-// Dynamically import the chart component to avoid SSR issues with Recharts
+// Dynamically import components that use canvas/charts to avoid SSR issues
+const OrderBookHeatmap = dynamic(() => import('@/components/OrderBookHeatmap'), {
+  ssr: false,
+});
+
 const OrderWallsChart = dynamic(() => import('@/components/OrderWallsChart'), {
   ssr: false,
 });
 
 export default function OrderVolumeTracker() {
   const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
-  const { orderBook, orderWalls, loading, error } = useOrderBook(selectedSymbol);
+  const [selectedTimeScale, setSelectedTimeScale] = useState<TimeScale>('15m');
+  const { orderBook, orderWalls, loading, error } = useOrderBook(selectedSymbol, selectedTimeScale);
+  const [volumeZones, setVolumeZones] = useState<VolumeZone[]>([]);
+
+  useEffect(() => {
+    if (orderBook) {
+      // Calculate volume concentration zones
+      const zones = calculateVolumeConcentrationZones(orderBook);
+      setVolumeZones(zones);
+    }
+  }, [orderBook]);
 
   const handleSymbolChange = (symbol: string) => {
     setSelectedSymbol(symbol);
+  };
+
+  const handleTimeScaleChange = (timeScale: TimeScale) => {
+    setSelectedTimeScale(timeScale);
   };
 
   return (
@@ -29,10 +50,17 @@ export default function OrderVolumeTracker() {
         Track significant order walls and market depth on Binance
       </div>
 
-      <SymbolSelector
-        selectedSymbol={selectedSymbol}
-        onSymbolChange={handleSymbolChange}
-      />
+      <div className="flex flex-wrap justify-between items-center mb-6">
+        <SymbolSelector
+          selectedSymbol={selectedSymbol}
+          onSymbolChange={handleSymbolChange}
+        />
+
+        <TimeScaleSelector
+          selectedTimeScale={selectedTimeScale}
+          onTimeScaleChange={handleTimeScaleChange}
+        />
+      </div>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative my-4">
@@ -40,12 +68,24 @@ export default function OrderVolumeTracker() {
         </div>
       )}
 
+      {/* New Heatmap Component */}
+      <OrderBookHeatmap
+        orderBook={orderBook}
+        timeScale={selectedTimeScale}
+        symbol={selectedSymbol}
+      />
+
+      {/* Volume Concentration Zones */}
+      <VolumeConcentrationZones zones={volumeZones} />
+
+      {/* Original Order Book Table */}
       <OrderBookTable
         orderBook={orderBook}
         orderWalls={orderWalls}
         loading={loading}
       />
 
+      {/* Order Walls Chart */}
       {!loading && orderWalls.length > 0 && (
         <OrderWallsChart orderWalls={orderWalls} />
       )}

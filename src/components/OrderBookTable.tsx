@@ -58,9 +58,9 @@ const OrderBookTable: React.FC<OrderBookTableProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-              {topBids.map((bid, index) => (
-                <tr 
-                  key={index} 
+              {topBids.map((bid) => (
+                <tr
+                  key={`bid-${bid.price}`}
                   className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     isOrderWall(bid.price, 'bid') ? 'bg-green-50 dark:bg-green-900/20' : ''
                   }`}
@@ -103,9 +103,9 @@ const OrderBookTable: React.FC<OrderBookTableProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-              {topAsks.map((ask, index) => (
-                <tr 
-                  key={index} 
+              {topAsks.map((ask) => (
+                <tr
+                  key={`ask-${ask.price}`}
                   className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     isOrderWall(ask.price, 'ask') ? 'bg-red-50 dark:bg-red-900/20' : ''
                   }`}
