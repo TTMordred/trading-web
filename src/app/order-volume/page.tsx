@@ -13,6 +13,14 @@ const OrderBookHeatmap = dynamic(() => import('@/components/OrderBookHeatmap'), 
   ssr: false,
 });
 
+const OrderBookHeatmapGrid = dynamic(() => import('@/components/OrderBookHeatmapGrid'), {
+  ssr: false,
+});
+
+const OrderBookHeatmapWithCandles = dynamic(() => import('@/components/OrderBookHeatmapWithCandles'), {
+  ssr: false,
+});
+
 export default function OrderVolumeTracker() {
   const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
   const { orderBook, orderWalls, loading, error } = useOrderBook(selectedSymbol);
@@ -81,7 +89,7 @@ export default function OrderVolumeTracker() {
 
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-4 md:mb-0 text-gray-400 max-w-md">
-              Visualize order book depth and market liquidity across the full range of orders
+              Visualize order book depth and market liquidity with multiple heatmap views
             </div>
 
             <div className="flex flex-wrap gap-4 items-center">
@@ -120,6 +128,18 @@ export default function OrderVolumeTracker() {
                 symbol={selectedSymbol}
               />
 
+              {/* Order Book Heatmap Grid */}
+              <OrderBookHeatmapGrid
+                orderBook={orderBook}
+                symbol={selectedSymbol}
+              />
+
+              {/* Order Book Heatmap with Candles */}
+              <OrderBookHeatmapWithCandles
+                orderBook={orderBook}
+                symbol={selectedSymbol}
+              />
+
               {/* Volume Concentration Zones */}
               <VolumeConcentrationZones zones={volumeZones} />
             </div>
@@ -139,6 +159,8 @@ export default function OrderVolumeTracker() {
         <div className="bg-gray-900/50 rounded-lg p-4 text-sm text-gray-400 flex justify-between items-center">
           <div>
             <p>Green/red bars show individual orders. Curved lines show cumulative volume.</p>
+            <p className="mt-1">Heatmap views show order density with color intensity indicating volume.</p>
+            <p className="mt-1">Hover over any part of the heatmaps to see detailed information.</p>
             <p className="mt-1">Showing the full order book range with all available orders.</p>
           </div>
           <div className="text-right">
