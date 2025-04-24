@@ -149,6 +149,12 @@ export const detectVolumeSpike = async (
 
 // Calculate Fibonacci retracement levels
 export const calculateFibonacciLevels = (highPrice: number, lowPrice: number): FibonacciLevel[] => {
+  // Ensure high and low prices are valid
+  if (highPrice <= 0 || lowPrice <= 0 || highPrice <= lowPrice) {
+    console.warn('Invalid high/low prices for Fibonacci calculation:', { highPrice, lowPrice });
+    return [];
+  }
+
   return FIBONACCI_LEVELS.map(level => ({
     level,
     price: lowPrice + (highPrice - lowPrice) * level
@@ -160,6 +166,11 @@ export const isPriceAtFibonacciLevel = (
   price: number,
   fibLevels: FibonacciLevel[]
 ): { isAtLevel: boolean; level?: number; priceToFiboRatio?: number } => {
+  if (fibLevels.length === 0 || price <= 0) {
+    return { isAtLevel: false };
+  }
+
+  // First check if we're exactly at any Fibonacci level
   for (const fib of fibLevels) {
     const tolerance = fib.price * FIBO_LEVEL_TOLERANCE;
     if (Math.abs(price - fib.price) <= tolerance) {
@@ -169,7 +180,27 @@ export const isPriceAtFibonacciLevel = (
       return { isAtLevel: true, level: fib.level, priceToFiboRatio };
     }
   }
-  return { isAtLevel: false };
+
+  // If not at any level, find the closest one (but don't mark as "at" the level)
+  let closestFib = fibLevels[0];
+  let minDeviation = Math.abs(price - closestFib.price) / closestFib.price;
+
+  for (let i = 1; i < fibLevels.length; i++) {
+    const fib = fibLevels[i];
+    const deviation = Math.abs(price - fib.price) / fib.price;
+
+    if (deviation < minDeviation) {
+      minDeviation = deviation;
+      closestFib = fib;
+    }
+  }
+
+  // Calculate how far we are from the closest level
+  const tolerance = closestFib.price * FIBO_LEVEL_TOLERANCE;
+  const priceToFiboRatio = Math.min(1, Math.abs(price - closestFib.price) / tolerance);
+
+  // Return false for isAtLevel, but still provide the nearest level for reference
+  return { isAtLevel: false, level: closestFib.level, priceToFiboRatio };
 };
 
 // Determine trend direction based on price movement
@@ -237,14 +268,30 @@ export const calculateSignalStrength = (
 
 // Format time since spike
 export const formatTimeSinceSpike = (spikeTime: number): string => {
+  if (!spikeTime || spikeTime <= 0) {
+    return 'N/A';
+  }
+
   const now = Date.now();
   const diffMs = now - spikeTime;
+
+  // Handle negative time difference (could happen if system clocks are not in sync)
+  if (diffMs < 0) {
+    return '0m';
+  }
+
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
   if (diffHours > 0) {
     return `${diffHours}h ${diffMinutes}m`;
   }
+
+  // If less than a minute, show "Just now" instead of "0m"
+  if (diffMinutes === 0) {
+    return 'Just now';
+  }
+
   return `${diffMinutes}m`;
 };
 
@@ -278,7 +325,10 @@ export const updateRecentVolumeSpikes = async (): Promise<RecentVolumeSpikeData[
   const updatedSpikes: RecentVolumeSpikeData[] = [];
   const currentTime = Date.now();
 
-  for (const [symbol, spike] of recentVolumeSpikes.entries()) {
+  // Convert Map entries to array to avoid iterator issues
+  const spikes = Array.from(recentVolumeSpikes.entries());
+
+  for (const [symbol, spike] of spikes) {
     // Skip if spike is older than MAX_RECENT_SPIKE_HOURS
     const ageHours = (currentTime - spike.spikeTime) / (1000 * 60 * 60);
     if (ageHours > MAX_RECENT_SPIKE_HOURS) {
@@ -294,6 +344,11 @@ export const updateRecentVolumeSpikes = async (): Promise<RecentVolumeSpikeData[
       // Calculate Fibonacci levels
       const fibLevels = calculateFibonacciLevels(spike.peakPrice, spike.lowPrice);
 
+      // Skip if we couldn't calculate Fibonacci levels (invalid prices)
+      if (fibLevels.length === 0) {
+        continue;
+      }
+
       // Check if price is at a Fibonacci level
       const { isAtLevel, level, priceToFiboRatio } = isPriceAtFibonacciLevel(currentPrice, fibLevels);
 
@@ -306,11 +361,14 @@ export const updateRecentVolumeSpikes = async (): Promise<RecentVolumeSpikeData[
       // Calculate signal strength
       const signalStrength = isAtLevel ? calculateSignalStrength(level, priceToFiboRatio) : 0;
 
+      // Format time since spike
+      const timeSinceStr = formatTimeSinceSpike(spike.spikeTime);
+
       // Update spike data
       const updatedSpike: RecentVolumeSpikeData = {
         ...spike,
         currentPrice,
-        timeSinceSpike: formatTimeSinceSpike(spike.spikeTime),
+        timeSinceSpike: timeSinceStr,
         isAtFiboLevel: isAtLevel,
         fiboLevel: level,
         trendDirection,
@@ -329,29 +387,34 @@ export const updateRecentVolumeSpikes = async (): Promise<RecentVolumeSpikeData[
     }
   }
 
-  // First sort by signal strength, then by Fibonacci level preference (0.786 > 0.618 > 0.5)
-  return updatedSpikes.sort((a, b) => {
+  // Sort the spikes by multiple criteria
+  // Create a copy of the array before sorting
+  const sortedSpikes = [...updatedSpikes];
+
+  // Create a helper function to get a numeric value for Fibonacci level preference
+  const getFiboValue = (level?: number): number => {
+    if (level === 0.786) return 3;
+    if (level === 0.618) return 2;
+    if (level === 0.5) return 1;
+    return 0;
+  };
+
+  // Sort by multiple criteria
+  sortedSpikes.sort((a, b) => {
     // First sort by signal strength
-    if (b.signalStrength !== a.signalStrength) {
-      return b.signalStrength! - a.signalStrength!;
-    }
+    const strengthDiff = (b.signalStrength ?? 0) - (a.signalStrength ?? 0);
+    if (strengthDiff !== 0) return strengthDiff;
 
-    // Then prioritize by Fibonacci level (0.786 is most important)
-    if (a.fiboLevel !== b.fiboLevel) {
-      // If both have fibo levels, prioritize 0.786, then 0.618, then 0.5
-      if (a.fiboLevel && b.fiboLevel) {
-        if (a.fiboLevel === 0.786) return -1;
-        if (b.fiboLevel === 0.786) return 1;
-        if (a.fiboLevel === 0.618) return -1;
-        if (b.fiboLevel === 0.618) return 1;
-      }
-      // If only one has a fibo level, prioritize that one
-      return a.fiboLevel ? -1 : 1;
-    }
+    // Then by Fibonacci level preference
+    const aFiboValue = getFiboValue(a.fiboLevel);
+    const bFiboValue = getFiboValue(b.fiboLevel);
+    if (aFiboValue !== bFiboValue) return bFiboValue - aFiboValue;
 
-    // Finally sort by percentage increase
+    // Finally by percentage increase
     return b.percentageIncrease - a.percentageIncrease;
   });
+
+  return sortedSpikes;
 };
 
 // Fetch current volume spikes (happening now)
