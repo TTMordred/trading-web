@@ -165,7 +165,7 @@ export default function OrderVolumeTracker() {
           </div>
           <div className="text-right">
             <p>Last updated: <span suppressHydrationWarning>{lastUpdated.toLocaleTimeString()}</span></p>
-            <p>Data refreshes automatically every 10 seconds</p>
+            <p>Data refreshes automatically every 15 minutes</p>
           </div>
         </div>
       </div>

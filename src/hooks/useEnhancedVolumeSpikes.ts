@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { TimeInterval, VolumeSpikeData } from '@/types/binance';
-import { 
-  fetchVolumeSpikes, 
-  fetchRecentVolumeSpikes, 
-  fetchFibonacciOpportunities 
+import {
+  fetchVolumeSpikes,
+  fetchRecentVolumeSpikes,
+  fetchFibonacciOpportunities
 } from '@/services/binanceService';
 
 interface EnhancedVolumeSpikesResult {
@@ -23,11 +23,11 @@ export const useEnhancedVolumeSpikes = (interval: TimeInterval): EnhancedVolumeS
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadAllVolumeSpikes = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         // Fetch all three types of data in parallel
         const [current, recent, fibonacci] = await Promise.all([
@@ -35,7 +35,7 @@ export const useEnhancedVolumeSpikes = (interval: TimeInterval): EnhancedVolumeS
           fetchRecentVolumeSpikes(interval),
           fetchFibonacciOpportunities(interval),
         ]);
-        
+
         if (isMounted) {
           setCurrentSpikes(current);
           setRecentSpikes(recent);
@@ -55,20 +55,21 @@ export const useEnhancedVolumeSpikes = (interval: TimeInterval): EnhancedVolumeS
 
     loadAllVolumeSpikes();
 
-    // Set up interval to refresh data every minute
-    const intervalId = setInterval(loadAllVolumeSpikes, 60000);
-    
+    // Set up interval to refresh data every 15 minutes
+    const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes in milliseconds
+    const intervalId = setInterval(loadAllVolumeSpikes, REFRESH_INTERVAL);
+
     return () => {
       isMounted = false;
       clearInterval(intervalId);
     };
   }, [interval]);
 
-  return { 
-    currentSpikes, 
-    recentSpikes, 
-    fibonacciOpportunities, 
-    loading, 
-    error 
+  return {
+    currentSpikes,
+    recentSpikes,
+    fibonacciOpportunities,
+    loading,
+    error
   };
 };

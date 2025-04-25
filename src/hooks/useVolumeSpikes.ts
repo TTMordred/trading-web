@@ -9,11 +9,11 @@ export const useVolumeSpikes = (interval: TimeInterval) => {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadVolumeSpikes = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         const data = await fetchVolumeSpikes(interval);
         if (isMounted) {
@@ -33,9 +33,10 @@ export const useVolumeSpikes = (interval: TimeInterval) => {
 
     loadVolumeSpikes();
 
-    // Set up interval to refresh data every minute
-    const intervalId = setInterval(loadVolumeSpikes, 60000);
-    
+    // Set up interval to refresh data every 15 minutes
+    const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes in milliseconds
+    const intervalId = setInterval(loadVolumeSpikes, REFRESH_INTERVAL);
+
     return () => {
       isMounted = false;
       clearInterval(intervalId);

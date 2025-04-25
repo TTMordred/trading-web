@@ -126,7 +126,7 @@ export default function VolumeSpikeTracker() {
           <li><span className="font-medium text-green-600 dark:text-green-400">Volume Spike Now:</span> Monitor for immediate momentum trading opportunities.</li>
           <li><span className="font-medium text-purple-600 dark:text-purple-400">Recent Spikes:</span> Look for coins that have cooled down after a spike, potentially forming a base for the next move.</li>
         </ul>
-        <p className="mt-2">Data refreshes automatically every minute. All times shown in your local timezone.</p>
+        <p className="mt-2">Data refreshes automatically every 15 minutes. All times shown in your local timezone.</p>
       </div>
     </div>
   );

@@ -37,8 +37,9 @@ export const useOrderBook = (symbol: string) => {
 
     loadOrderBook();
 
-    // Set up interval to refresh data every 10 seconds
-    const intervalId = setInterval(loadOrderBook, 10000);
+    // Set up interval to refresh data every 15 minutes
+    const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes in milliseconds
+    const intervalId = setInterval(loadOrderBook, REFRESH_INTERVAL);
 
     return () => {
       isMounted = false;
