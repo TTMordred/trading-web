@@ -2,13 +2,15 @@
 
 import { useEffect } from 'react';
 
-export default function Error({
+interface ErrorPageProps {
+  readonly error: Error & { digest?: string };
+  readonly reset: () => void;
+}
+
+export default function ErrorPage({
   error,
   reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+}: ErrorPageProps) {
   useEffect(() => {
     // Log the error to an error reporting service
     console.error(error);

@@ -261,111 +261,90 @@ const OrderBookHeatmap: React.FC<OrderBookHeatmapProps> = ({
 
   }, [orderBook, symbol]);
 
+  // Helper functions for mouse move handler
+  const calculatePriceRange = (orderBook: OrderBook) => {
+    const allPrices = [...orderBook.bids.map(bid => bid.price), ...orderBook.asks.map(ask => ask.price)];
+    const minPrice = Math.min(...allPrices);
+    const maxPrice = Math.max(...allPrices);
+    const priceRange = maxPrice - minPrice;
+    const buffer = priceRange * 0.05;
+    return {
+      minPrice,
+      maxPrice,
+      adjustedMinPrice: minPrice - buffer,
+      adjustedMaxPrice: maxPrice + buffer
+    };
+  };
+
+  const calculateCumulativeVolumes = (orders: OrderBookEntry[]) => {
+    let cumulativeVolume = 0;
+    return orders.map(order => {
+      const volume = order.price * order.quantity;
+      cumulativeVolume += volume;
+      return { ...order, cumulativeVolume };
+    });
+  };
+
+  const findClosestOrder = (orders: (OrderBookEntry & { cumulativeVolume: number })[], targetPrice: number) => {
+    return orders.reduce((closest, current) => {
+      return Math.abs(current.price - targetPrice) < Math.abs(closest.price - targetPrice) ? current : closest;
+    }, orders[0] || { price: 0, quantity: 0, cumulativeVolume: 0 });
+  };
+
+  const createHoverInfo = (
+    order: OrderBookEntry & { cumulativeVolume: number },
+    type: 'bid' | 'ask',
+    x: number,
+    y: number
+  ): HoverInfo => ({
+    price: order.price,
+    quantity: order.quantity,
+    cumulativeVolume: order.cumulativeVolume,
+    type,
+    x,
+    y
+  });
+
   // Handle mouse move to detect hover over cumulative volume lines
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current || !orderBook) return;
 
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
-    // Use the full range of orders for hover detection
-    // Find min and max prices from all orders
-    const allPrices = [...orderBook.bids.map(bid => bid.price), ...orderBook.asks.map(ask => ask.price)];
-    const minPrice = Math.min(...allPrices);
-    const maxPrice = Math.max(...allPrices);
-    const priceRange = maxPrice - minPrice;
+    const { minPrice, maxPrice, adjustedMinPrice, adjustedMaxPrice } = calculatePriceRange(orderBook);
+    const mousePrice = adjustedMinPrice + (mouseX / rect.width) * (adjustedMaxPrice - adjustedMinPrice);
 
-    // Add a small buffer (5%) to the price range for better visualization
-    const buffer = priceRange * 0.05;
-    const adjustedMinPrice = minPrice - buffer;
-    const adjustedMaxPrice = maxPrice + buffer;
-
-    // Convert x position to price
-    const mousePrice = adjustedMinPrice + (x / rect.width) * (adjustedMaxPrice - adjustedMinPrice);
-
-    // Sort orders by price
     const sortedBids = [...orderBook.bids].sort((a, b) => a.price - b.price);
     const sortedAsks = [...orderBook.asks].sort((a, b) => a.price - b.price);
 
-    // Find max cumulative volume for scaling
-    let cumulativeBidVolume = 0;
-    const bidsWithCumulative = sortedBids.map(bid => {
-      const volume = bid.price * bid.quantity;
-      cumulativeBidVolume += volume;
-      return { ...bid, cumulativeVolume: cumulativeBidVolume };
-    });
-
-    let cumulativeAskVolume = 0;
-    const asksWithCumulative = sortedAsks.map(ask => {
-      const volume = ask.price * ask.quantity;
-      cumulativeAskVolume += volume;
-      return { ...ask, cumulativeVolume: cumulativeAskVolume };
-    });
+    const bidsWithCumulative = calculateCumulativeVolumes(sortedBids);
+    const asksWithCumulative = calculateCumulativeVolumes(sortedAsks);
 
     const maxCumulativeVolume = Math.max(
-      bidsWithCumulative.length > 0 ? bidsWithCumulative[bidsWithCumulative.length - 1].cumulativeVolume : 0,
-      asksWithCumulative.length > 0 ? asksWithCumulative[asksWithCumulative.length - 1].cumulativeVolume : 0
+      bidsWithCumulative[bidsWithCumulative.length - 1]?.cumulativeVolume || 0,
+      asksWithCumulative[asksWithCumulative.length - 1]?.cumulativeVolume || 0
     );
 
-    // Find closest point on the cumulative volume lines
-    // First determine if we're closer to bids or asks based on price
     const midPrice = (minPrice + maxPrice) / 2;
+    const orders = mousePrice < midPrice ? bidsWithCumulative : asksWithCumulative;
+    const type = mousePrice < midPrice ? 'bid' : 'ask';
 
-    if (mousePrice < midPrice) {
-      // Closer to bids (green) side
-      const closestBid = bidsWithCumulative.reduce((closest, current) => {
-        return Math.abs(current.price - mousePrice) < Math.abs(closest.price - mousePrice) ? current : closest;
-      }, bidsWithCumulative[0] || { price: 0, quantity: 0, cumulativeVolume: 0 });
+    const closestOrder = findClosestOrder(orders, mousePrice);
 
-      if (closestBid && closestBid.price > 0) {
-        // Calculate y position on the cumulative line
-        const lineY = rect.height - 40 - (closestBid.cumulativeVolume / maxCumulativeVolume) * (rect.height - 40);
+    if (closestOrder.price > 0) {
+      const lineY = rect.height - 40 - (closestOrder.cumulativeVolume / maxCumulativeVolume) * (rect.height - 40);
 
-        // Only show tooltip if mouse is close to the line (within 30px)
-        if (Math.abs(y - lineY) < 30) {
-          const x = (closestBid.price - adjustedMinPrice) / (adjustedMaxPrice - adjustedMinPrice) * rect.width;
-          setHoverPoint({ x, y: lineY, type: 'bid' });
-          setHoverInfo({
-            price: closestBid.price,
-            quantity: closestBid.quantity,
-            cumulativeVolume: closestBid.cumulativeVolume,
-            type: 'bid',
-            x,
-            y: lineY
-          });
-          return;
-        }
-      }
-    } else {
-      // Closer to asks (red) side
-      const closestAsk = asksWithCumulative.reduce((closest, current) => {
-        return Math.abs(current.price - mousePrice) < Math.abs(closest.price - mousePrice) ? current : closest;
-      }, asksWithCumulative[0] || { price: 0, quantity: 0, cumulativeVolume: 0 });
-
-      if (closestAsk && closestAsk.price > 0) {
-        // Calculate y position on the cumulative line
-        const lineY = rect.height - 40 - (closestAsk.cumulativeVolume / maxCumulativeVolume) * (rect.height - 40);
-
-        // Only show tooltip if mouse is close to the line (within 30px)
-        if (Math.abs(y - lineY) < 30) {
-          const x = (closestAsk.price - adjustedMinPrice) / (adjustedMaxPrice - adjustedMinPrice) * rect.width;
-          setHoverPoint({ x, y: lineY, type: 'ask' });
-          setHoverInfo({
-            price: closestAsk.price,
-            quantity: closestAsk.quantity,
-            cumulativeVolume: closestAsk.cumulativeVolume,
-            type: 'ask',
-            x,
-            y: lineY
-          });
-          return;
-        }
+      if (Math.abs(mouseY - lineY) < 30) {
+        const hoverX = ((closestOrder.price - adjustedMinPrice) / (adjustedMaxPrice - adjustedMinPrice)) * rect.width;
+        setHoverPoint({ x: hoverX, y: lineY, type });
+        setHoverInfo(createHoverInfo(closestOrder, type, hoverX, lineY));
+        return;
       }
     }
 
-    // If not hovering near any line, clear the hover info
     setHoverInfo(null);
     setHoverPoint(null);
   };

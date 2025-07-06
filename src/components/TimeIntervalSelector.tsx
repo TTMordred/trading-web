@@ -17,30 +17,32 @@ const TimeIntervalSelector: React.FC<TimeIntervalSelectorProps> = ({
   selectedInterval,
   onIntervalChange,
 }) => {
+  const getSelectionStyle = (isSelected: boolean) =>
+    isSelected
+      ? 'bg-primary text-white border-primary'
+      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700';
+
+  const getCornerStyle = (value: TimeInterval) => {
+    if (value === '15m') return 'rounded-l-lg';
+    if (value === '1d') return 'rounded-r-lg';
+    return '';
+  };
+
   return (
     <div className="flex justify-center mb-6">
-      <div className="inline-flex rounded-md shadow-sm" role="group">
+      <fieldset className="inline-flex rounded-md shadow-sm">
+        <legend className="sr-only">Time interval selection</legend>
         {intervals.map((interval) => (
           <button
             key={interval.value}
             type="button"
-            className={`px-4 py-2 text-sm font-medium border ${
-              selectedInterval === interval.value
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700'
-            } ${
-              interval.value === '15m'
-                ? 'rounded-l-lg'
-                : interval.value === '1d'
-                ? 'rounded-r-lg'
-                : ''
-            }`}
+            className={`px-4 py-2 text-sm font-medium border ${getSelectionStyle(selectedInterval === interval.value)} ${getCornerStyle(interval.value)}`}
             onClick={() => onIntervalChange(interval.value)}
           >
             {interval.label}
           </button>
         ))}
-      </div>
+      </fieldset>
     </div>
   );
 };

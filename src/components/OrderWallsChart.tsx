@@ -17,10 +17,21 @@ interface OrderWallsChartProps {
   currentPrice?: number;
 }
 
+// Chart data point interface
+interface ChartDataPoint {
+  price: string;
+  fullPrice: string;
+  value: number;
+  type: 'bid' | 'ask';
+  chartCurrentPrice?: number;
+  cumulativeBidVolume: number | null;
+  cumulativeAskVolume: number | null;
+}
+
 // Custom tooltip component
-interface CustomTooltipProps extends TooltipProps {
+interface CustomTooltipProps extends TooltipProps<number, string> {
   active?: boolean;
-  payload?: any[];
+  payload?: { payload: ChartDataPoint }[];
   label?: string;
 }
 
@@ -140,7 +151,7 @@ const OrderWallsChart: React.FC<OrderWallsChartProps> = ({
         cumulativeAskVolume: wall.type === 'ask' ? cumulativeAskVolume : null,
       };
     });
-  }, [sortedWalls, currentPrice]);
+  }, [sortedWalls, currentPrice, priceRange.range]);
 
   // Check for empty data after processing
   if (orderWalls.length === 0) {
